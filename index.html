@@ -77,6 +77,8 @@ button{font-family:var(--font);}
 .note-block{background:var(--warn-wash);border:1px solid #f0dcae;border-radius:10px;
   padding:12px 14px;font-size:12.5px;line-height:1.55;color:var(--ink);margin-bottom:14px;}
 .note-block b{display:block;margin-bottom:2px;}
+.note-block .fix{margin-top:10px;padding-top:10px;border-top:1px solid #f0dcae;}
+.note-block .fix span{color:var(--muted);font-size:11.5px;}
 .named{font-family:var(--mono);font-size:11px;color:var(--faint);margin-top:7px;
   word-break:break-all;}
 .named b{color:var(--muted);font-family:var(--font);font-weight:600;}
@@ -287,7 +289,8 @@ const adsManagerUrl = (actId, adSetId) =>
   (adSetId ? `&selected_adset_ids=${adSetId}` : '');
 
 const state = { clients: [], clientId: null, stage: 'build', rows: [], adSets: [],
-                loading: false, unplanned: [], metaRead: true, taxonomy: {mapped:true} };
+                loading: false, unplanned: [], metaRead: true, taxonomy: {mapped:true},
+                blocker: null };
 
 // Meta's own words for where an ad stands. Shown as they are rather than
 // flattened into live/not live, because "in review" and "rejected" are the two
@@ -406,7 +409,28 @@ function renderList() {
   // A client missing from the taxonomy sheet is checked by nothing at all, and
   // that looks exactly like a client with no problems. Said at the top, before
   // the queue, because it is the one thing on this page nobody would notice.
-  if (state.taxonomy && state.taxonomy.mapped === false) {
+  // One problem, stated once, with the thing to change and where. A blocker
+  // repeated down every row reads as four problems and sends someone hunting
+  // for a rule they have not been told the location of.
+  if (state.blocker) {
+    const b = state.blocker;
+    const box = el('div','note-block');
+    let html = `<b>Nothing can be built for this client yet.</b>${esc(b.message)}.`;
+    if (b.fix) {
+      html += `<div class="fix"><b>To fix it</b>${esc(b.fix.what)}`;
+      if (b.fix.currently) html += `<br><span>Currently: ${esc(b.fix.currently)}</span>`;
+      if (b.fix.where) html += `<br><span>${esc(b.fix.where)}</span>`;
+      html += `</div>`;
+    }
+    box.innerHTML = html;
+    if (b.fix && b.fix.sheet) {
+      const open = el('button','btn sm','Open the taxonomy sheet');
+      open.style.marginTop = '10px';
+      open.onclick = () => window.open(b.fix.sheet, '_blank', 'noopener');
+      box.appendChild(open);
+    }
+    list.appendChild(box);
+  } else if (state.taxonomy && state.taxonomy.mapped === false) {
     const warn = el('div','note-block');
     warn.innerHTML = `<b>This client is not in the taxonomy sheet.</b>
       Nothing is checking their campaign, ad set or ad names, or their tracking,
@@ -541,10 +565,13 @@ function rowCard(r) {
   // creating the ad.
   if (!r.built && r.will_be_named) {
     mid.appendChild(el('div','named', `<b>Will be named</b> ${esc(r.will_be_named)}`));
-  } else if (!r.built && r.naming_error) {
+  } else if (!r.built && r.naming_error && !state.blocker) {
+    // Suppressed when the whole client is blocked: the banner already said it,
+    // and repeating it per row makes one problem look like several.
     const e = el('div','why');
     e.style.color = 'var(--warn)';
-    e.textContent = `Cannot be named: ${r.naming_error}`;
+    e.innerHTML = `<b>Cannot be named.</b> ${esc(r.naming_error)}` +
+      (r.naming_fix ? `<br>${esc(r.naming_fix.what)}` : '');
     mid.appendChild(e);
   }
   card.appendChild(mid);
@@ -777,6 +804,7 @@ async function load() {
     state.metaRead = q.meta_read !== false;
     state.metaError = q.meta_error || null;
     state.taxonomy = q.taxonomy || { mapped: true };
+    state.blocker = q.blocker || null;
     if (q.error) toast('The plan did not load cleanly. ' + q.error);
     if (q.meta_error) toast('The ad account could not be read. ' + q.meta_error);
   } catch (e) {
