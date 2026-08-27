@@ -459,7 +459,11 @@ function renderList() {
   if (state.stage === 'live' && state.unplanned.length) {
     const head = el('div','hint');
     head.style.marginTop = '22px';
-    head.innerHTML = `<b style="color:var(--warn);">Delivering, but not matched to a plan row</b> —
+    const older = state.unplanned.filter(a => a.from_month).length;
+    head.innerHTML = older
+      ? `<b>Delivering, from earlier months or unmatched</b> — ${older} still running from a
+         previous month's plan, and ${state.unplanned.length - older} with no row found.`
+      : `<b style="color:var(--warn);">Delivering, but not matched to a plan row</b> —
       ${state.unplanned.length} ad${state.unplanned.length === 1 ? '' : 's'} that actually ran in the
       last seven days with no matching plan row. Some may just need linking to the right row; the
       rest were built outside the usual route.`;
@@ -475,7 +479,7 @@ function renderList() {
       }
       card.appendChild(t);
       const mid = el('div','mid');
-      mid.appendChild(el('h3', null, esc(a.ad_name || a.ad_id)));
+      mid.appendChild(el('h3', null, esc(a.plan_name || a.ad_name || a.ad_id)));
       const week = a.impressions_7d
         ? `${Number(a.impressions_7d).toLocaleString()} impressions in 7 days`
         : '';
@@ -483,8 +487,15 @@ function renderList() {
         [a.campaign_name, a.adset_name, week].filter(Boolean).map(esc).join(' &middot; ')));
       const chips = el('div','chips');
       chips.appendChild(el('span','chip ok', esc(META_LABEL[a.effective_status] || a.effective_status)));
-      chips.appendChild(el('span','chip warn',
-        a.candidates && a.candidates.length ? 'Needs linking' : 'Not in the plan'));
+      // Three different situations, and only the last one is a problem: it
+      // belongs to an earlier month, it needs a person to say which row, or
+      // nobody planned it at all.
+      if (a.from_month) {
+        chips.appendChild(el('span','chip plain', `From ${esc(a.from_month)}`));
+      } else {
+        chips.appendChild(el('span','chip warn',
+          a.candidates && a.candidates.length ? 'Needs linking' : 'Not in the plan'));
+      }
       mid.appendChild(chips);
       card.appendChild(mid);
       // Close scores across several rows mean the name genuinely cannot tell
