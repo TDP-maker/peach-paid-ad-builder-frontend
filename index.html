@@ -74,6 +74,12 @@ button{font-family:var(--font);}
 .btn:disabled{opacity:.5;cursor:default;border-color:var(--hair);color:var(--faint);}
 .btn.sm{padding:6px 11px;font-size:11.5px;}
 
+.note-block{background:var(--warn-wash);border:1px solid #f0dcae;border-radius:10px;
+  padding:12px 14px;font-size:12.5px;line-height:1.55;color:var(--ink);margin-bottom:14px;}
+.note-block b{display:block;margin-bottom:2px;}
+.named{font-family:var(--mono);font-size:11px;color:var(--faint);margin-top:7px;
+  word-break:break-all;}
+.named b{color:var(--muted);font-family:var(--font);font-weight:600;}
 .empty{text-align:center;padding:60px 20px;color:var(--faint);}
 .empty h3{margin:0 0 6px;font-size:15px;font-weight:600;color:var(--ink);}
 .empty p{margin:0;font-size:13px;}
@@ -281,7 +287,7 @@ const adsManagerUrl = (actId, adSetId) =>
   (adSetId ? `&selected_adset_ids=${adSetId}` : '');
 
 const state = { clients: [], clientId: null, stage: 'build', rows: [], adSets: [],
-                loading: false, unplanned: [], metaRead: true };
+                loading: false, unplanned: [], metaRead: true, taxonomy: {mapped:true} };
 
 // Meta's own words for where an ad stands. Shown as they are rather than
 // flattened into live/not live, because "in review" and "rejected" are the two
@@ -397,6 +403,17 @@ function renderList() {
   $('#nPaused').textContent = counts.paused;
   $('#nLive').textContent   = counts.live;
 
+  // A client missing from the taxonomy sheet is checked by nothing at all, and
+  // that looks exactly like a client with no problems. Said at the top, before
+  // the queue, because it is the one thing on this page nobody would notice.
+  if (state.taxonomy && state.taxonomy.mapped === false) {
+    const warn = el('div','note-block');
+    warn.innerHTML = `<b>This client is not in the taxonomy sheet.</b>
+      Nothing is checking their campaign, ad set or ad names, or their tracking,
+      and no ad can be built here until they are added to tab 01.`;
+    list.appendChild(warn);
+  }
+
   if (state.loading) { list.appendChild(el('div','empty','<p>Loading…</p>')); return; }
 
   if (!rows.length) {
@@ -501,7 +518,7 @@ function rowCard(r) {
   } else {
     chip(r.copy ? 'ok' : 'warn', r.copy ? 'Copy ready' : 'No copy in the plan');
     chip(r.asset_ok ? 'ok' : 'warn', r.asset_ok ? 'Files in Drive' : r.asset_label);
-    chip(r.utm_ok ? 'ok' : 'warn', r.utm_ok ? 'UTMs valid' : 'UTMs not set');
+      chip(r.naming_error ? 'warn' : 'ok', r.naming_error ? 'Naming blocked' : 'Named to taxonomy');
   }
   if (r.adset_name) chip('plain', r.adset_name);
   else if (!r.built) chip('warn', 'No ad set chosen');
@@ -518,15 +535,29 @@ function rowCard(r) {
   } else if (!r.adset_id && !r.built) {
     mid.appendChild(el('div','why','Pick where it goes before this can be built.'));
   }
+
+  // The name it would carry, in full, before anyone commits to anything. A
+  // naming problem is a sentence here rather than a failure halfway through
+  // creating the ad.
+  if (!r.built && r.will_be_named) {
+    mid.appendChild(el('div','named', `<b>Will be named</b> ${esc(r.will_be_named)}`));
+  } else if (!r.built && r.naming_error) {
+    const e = el('div','why');
+    e.style.color = 'var(--warn)';
+    e.textContent = `Cannot be named: ${r.naming_error}`;
+    mid.appendChild(e);
+  }
   card.appendChild(mid);
 
   const acts = el('div','acts');
 
   if (stageOf(r) === 'build') {
-    if (r.asset_ok && r.adset_id) {
+    if (r.asset_ok && r.adset_id && !r.naming_error) {
       const b = el('button','btn go','Build it');
       b.onclick = () => doBuild(r, b);
       acts.appendChild(b);
+    } else if (r.asset_ok && r.naming_error) {
+      // No button at all rather than one that fails: the row already says why.
     } else if (r.asset_ok) {
       const b = el('button','btn','Choose ad set');
       b.onclick = () => chooseAdSet(r);
@@ -745,6 +776,7 @@ async function load() {
     state.unplanned = q.unplanned || [];
     state.metaRead = q.meta_read !== false;
     state.metaError = q.meta_error || null;
+    state.taxonomy = q.taxonomy || { mapped: true };
     if (q.error) toast('The plan did not load cleanly. ' + q.error);
     if (q.meta_error) toast('The ad account could not be read. ' + q.meta_error);
   } catch (e) {
