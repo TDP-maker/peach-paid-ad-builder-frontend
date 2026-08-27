@@ -82,6 +82,22 @@ button{font-family:var(--font);}
 .named{font-family:var(--mono);font-size:11px;color:var(--faint);margin-top:7px;
   word-break:break-all;}
 .named b{color:var(--muted);font-family:var(--font);font-weight:600;}
+/* Loading. Placeholders rather than a spinner alone: the shape of what is
+   coming reads as "nearly there" instead of "nothing happened". */
+.loadbar{display:flex;align-items:center;gap:9px;font-size:12.5px;color:var(--muted);
+  padding:2px 0 14px;}
+.loadbar b{font-weight:600;color:var(--ink);}
+.spin{width:12px;height:12px;border:2px solid var(--hair);border-top-color:var(--coral);
+  border-radius:50%;display:inline-block;animation:spin .7s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.skel{border:1px solid var(--hair);border-radius:12px;padding:14px 16px;margin-bottom:10px;
+  display:flex;gap:14px;}
+.sk-thumb{width:56px;height:70px;border-radius:8px;background:var(--hair-lt);flex:0 0 auto;}
+.sk-line{height:11px;background:var(--hair-lt);border-radius:4px;margin-bottom:8px;}
+.sk-line.sub{height:9px;background:var(--wash);margin-bottom:12px;}
+.sk-chips{display:flex;gap:6px;}
+.sk-chips span{height:18px;background:var(--wash);border-radius:5px;display:block;}
+
 .empty{text-align:center;padding:60px 20px;color:var(--faint);}
 .empty h3{margin:0 0 6px;font-size:15px;font-weight:600;color:var(--ink);}
 .empty p{margin:0;font-size:13px;}
@@ -457,7 +473,34 @@ function renderList() {
     list.appendChild(warn);
   }
 
-  if (state.loading) { list.appendChild(el('div','empty','<p>Loading…</p>')); return; }
+  if (state.loading) {
+    // The previous client's rows are cleared before the new ones arrive, and
+    // the counts blank out with them. A stale row under a newly selected client
+    // name is worse than an empty second.
+    const who = (state.clients.find(c => c.id === state.clientId) || {}).name || '';
+    $('#nBuild').textContent = '—';
+    $('#nPaused').textContent = '—';
+    $('#nLive').textContent = '—';
+
+    const bar = el('div','loadbar');
+    bar.innerHTML = `<span class="spin"></span> Loading <b>${esc(who)}</b>`;
+    list.appendChild(bar);
+
+    for (let i = 0; i < 3; i++) {
+      const sk = el('div','skel');
+      sk.style.opacity = String(1 - i * 0.25);
+      sk.innerHTML = `<div class="sk-thumb"></div>
+        <div style="flex:1;">
+          <div class="sk-line" style="width:${52 - i * 8}%;"></div>
+          <div class="sk-line sub" style="width:${36 - i * 4}%;"></div>
+          <div class="sk-chips">
+            <span style="width:70px;"></span><span style="width:58px;"></span><span style="width:82px;"></span>
+          </div>
+        </div>`;
+      list.appendChild(sk);
+    }
+    return;
+  }
 
   const alsoUnplanned = state.stage === 'live' && state.unplanned.length;
 
@@ -905,7 +948,12 @@ document.querySelectorAll('.tab').forEach(t => {
 $('#refresh').onclick = () => load();
 
 async function load() {
+  // Cleared before the fetch, not after it. Leaving the old rows in state meant
+  // the previous client stayed on screen until the new data landed.
   state.loading = true;
+  state.rows = [];
+  state.unplanned = [];
+  state.blocker = null;
   renderRail(); renderList();
   const client = state.clients.find(c => c.id === state.clientId);
   $('#who').textContent = client ? client.name : '';
