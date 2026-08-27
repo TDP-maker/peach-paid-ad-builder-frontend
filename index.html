@@ -459,13 +459,18 @@ function renderList() {
 
   if (state.loading) { list.appendChild(el('div','empty','<p>Loading…</p>')); return; }
 
-  if (!rows.length) {
+  const alsoUnplanned = state.stage === 'live' && state.unplanned.length;
+
+  if (!rows.length && !alsoUnplanned) {
     list.appendChild(el('div','empty', state.stage === 'build'
       ? `<h3>Nothing waiting to be built</h3><p>Approved ads with no Meta ad against them appear here.</p>`
       : `<h3>Nothing here</h3><p>Ads move into this list as they are built and set live.</p>`));
     return;
   }
 
+  // No early return when there are unmatched ads to show. A client with nothing
+  // matched to a plan row still has ads delivering, and returning here hid all
+  // sixteen of them behind an empty state.
   rows.forEach(r => list.appendChild(rowCard(r)));
 
   // Only on the Live tab, because that is the tab that claims to show what is
