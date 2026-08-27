@@ -348,6 +348,12 @@ const API = {
     return (await call(`/api/ads/adsets?client=${encodeURIComponent(clientId)}`)).adsets || [];
   },
   // Creates the ad paused. The worker is the only thing that talks to Meta.
+  // Tie a Meta ad to a plan row once, by hand, when the names cannot say.
+  async link(clientId, planKey, adId, adName) {
+    if (!API_BASE) return {ok:true};
+    return call('/api/ads/link', { method:'POST',
+      body: JSON.stringify({ client_id: clientId, plan_key: planKey, ad_id: adId, ad_name: adName }) });
+  },
   async build(clientId, planKey, adSetId) {
     if (!API_BASE) { await new Promise(r => setTimeout(r, 700)); return { ok:true, ad_id:'0000' }; }
     return call('/api/ads/build', { method:'POST',
@@ -408,10 +414,10 @@ function renderList() {
   if (state.stage === 'live' && state.unplanned.length) {
     const head = el('div','hint');
     head.style.marginTop = '22px';
-    head.innerHTML = `<b style="color:var(--warn);">Running, but not in the plan</b> —
+    head.innerHTML = `<b style="color:var(--warn);">Running, but not matched to a plan row</b> —
       ${state.unplanned.length} ad${state.unplanned.length === 1 ? '' : 's'} delivering in this
-      account with no matching plan row. Either the plan is missing them, or they were built
-      outside the usual route.`;
+      account. Some may just need linking to the right row; the rest were built outside the
+      usual route.`;
     list.appendChild(head);
 
     state.unplanned.forEach(a => {
@@ -429,9 +435,34 @@ function renderList() {
         `${esc(a.campaign_name || '')} &middot; ${esc(a.adset_name || '')}`));
       const chips = el('div','chips');
       chips.appendChild(el('span','chip ok', esc(META_LABEL[a.effective_status] || a.effective_status)));
-      chips.appendChild(el('span','chip warn','Not in the plan'));
+      chips.appendChild(el('span','chip warn',
+        a.candidates && a.candidates.length ? 'Needs linking' : 'Not in the plan'));
       mid.appendChild(chips);
       card.appendChild(mid);
+      // Close scores across several rows mean the name genuinely cannot tell
+      // them apart. Asking once and recording the answer beats guessing on
+      // every load.
+      if (a.candidates && a.candidates.length) {
+        const pick = el('div','why');
+        pick.innerHTML = 'This looks like one of these. Which is it?';
+        mid.appendChild(pick);
+        const opts = el('div','chips');
+        opts.style.marginTop = '6px';
+        a.candidates.forEach(c => {
+          const b = el('button','btn sm', esc(c.name));
+          b.onclick = async () => {
+            b.disabled = true; b.textContent = 'Linking…';
+            try {
+              await API.link(state.clientId, c.key, a.ad_id, a.ad_name);
+              toast('Linked. It will show against that row from now on.');
+              load();
+            } catch (e) { b.disabled = false; toast('Could not link it. ' + e.message); }
+          };
+          opts.appendChild(b);
+        });
+        mid.appendChild(opts);
+      }
+
       const acts = el('div','acts');
       const open = el('button','btn','Open in Ads Manager');
       open.onclick = () => window.open(adsManagerUrl(state.clientId, a.adset_id), '_blank', 'noopener');
@@ -713,7 +744,9 @@ async function load() {
     state.rows = q.rows || [];
     state.unplanned = q.unplanned || [];
     state.metaRead = q.meta_read !== false;
+    state.metaError = q.meta_error || null;
     if (q.error) toast('The plan did not load cleanly. ' + q.error);
+    if (q.meta_error) toast('The ad account could not be read. ' + q.meta_error);
   } catch (e) {
     state.rows = []; state.unplanned = []; state.metaRead = false;
     toast('Could not load the queue. ' + e.message);
