@@ -310,7 +310,7 @@ const META_BAD = ['DISAPPROVED', 'WITH_ISSUES'];
 const STAGE_HINT = {
   build:  'Approved in the plan and not built yet. Building uploads the creative, writes the copy in, names it to the taxonomy and stamps the UTMs — paused.',
   paused: 'Built and waiting in Ads Manager. Targeting, budget and setting it live happen there, so the decision to spend has a name against it.',
-  live:   'Read from the ad account, not the plan. Editing copy on a live ad replaces the creative and resets its learning, so it is a considered change rather than a quick one.'
+  live:   'Ads that actually delivered in the last seven days, read from the ad account rather than the plan. Something switched on but not spending is not here. Editing copy on a live ad replaces the creative and resets its learning, so it is a considered change rather than a quick one.'
 };
 
 /* ============================================================
@@ -402,6 +402,10 @@ function renderList() {
 
   const counts = { build:0, paused:0, live:0 };
   state.rows.forEach(r => counts[stageOf(r)]++);
+  // Ads delivering with no plan row are still live ads in this account, and the
+  // tab claims to show what is live. Counting only matched rows said "1" over a
+  // list of seventy.
+  counts.live += state.unplanned.length;
   $('#nBuild').textContent  = counts.build;
   $('#nPaused').textContent = counts.paused;
   $('#nLive').textContent   = counts.live;
@@ -455,10 +459,10 @@ function renderList() {
   if (state.stage === 'live' && state.unplanned.length) {
     const head = el('div','hint');
     head.style.marginTop = '22px';
-    head.innerHTML = `<b style="color:var(--warn);">Running, but not matched to a plan row</b> —
-      ${state.unplanned.length} ad${state.unplanned.length === 1 ? '' : 's'} delivering in this
-      account. Some may just need linking to the right row; the rest were built outside the
-      usual route.`;
+    head.innerHTML = `<b style="color:var(--warn);">Delivering, but not matched to a plan row</b> —
+      ${state.unplanned.length} ad${state.unplanned.length === 1 ? '' : 's'} that actually ran in the
+      last seven days with no matching plan row. Some may just need linking to the right row; the
+      rest were built outside the usual route.`;
     list.appendChild(head);
 
     state.unplanned.forEach(a => {
@@ -472,8 +476,11 @@ function renderList() {
       card.appendChild(t);
       const mid = el('div','mid');
       mid.appendChild(el('h3', null, esc(a.ad_name || a.ad_id)));
+      const week = a.impressions_7d
+        ? `${Number(a.impressions_7d).toLocaleString()} impressions in 7 days`
+        : '';
       mid.appendChild(el('div','meta',
-        `${esc(a.campaign_name || '')} &middot; ${esc(a.adset_name || '')}`));
+        [a.campaign_name, a.adset_name, week].filter(Boolean).map(esc).join(' &middot; ')));
       const chips = el('div','chips');
       chips.appendChild(el('span','chip ok', esc(META_LABEL[a.effective_status] || a.effective_status)));
       chips.appendChild(el('span','chip warn',
