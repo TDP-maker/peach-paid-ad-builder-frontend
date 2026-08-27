@@ -180,7 +180,7 @@ button{font-family:var(--font);}
 <div class="scrim" id="overlay"></div>
 
 <script>
-const API_BASE = 'https://peach-paid-ad-builder.billowing-mountain-8cbc.workers.dev';   // set to the peach-ads-console worker once it exists
+const API_BASE = 'https://peach-paid-ad-builder.billowing-mountain-8cbc.workers.dev';
 
 /* ============================================================
    AUTH — same bridge as the scheduler: Softr session in, admin key as the
@@ -280,12 +280,28 @@ const adsManagerUrl = (actId, adSetId) =>
   `https://adsmanager.facebook.com/adsmanager/manage/ads?act=${String(actId).replace('act_','')}` +
   (adSetId ? `&selected_adset_ids=${adSetId}` : '');
 
-const state = { clients: [], clientId: null, stage: 'build', rows: [], adSets: [], loading: false };
+const state = { clients: [], clientId: null, stage: 'build', rows: [], adSets: [],
+                loading: false, unplanned: [], metaRead: true };
+
+// Meta's own words for where an ad stands. Shown as they are rather than
+// flattened into live/not live, because "in review" and "rejected" are the two
+// anyone actually needs to act on.
+const META_LABEL = {
+  ACTIVE: 'Delivering',
+  PAUSED: 'Paused in Ads Manager',
+  PENDING_REVIEW: 'In review with Meta',
+  DISAPPROVED: 'Rejected by Meta',
+  CAMPAIGN_PAUSED: 'Campaign is paused',
+  ADSET_PAUSED: 'Ad set is paused',
+  IN_PROCESS: 'Being processed',
+  WITH_ISSUES: 'Running with issues'
+};
+const META_BAD = ['DISAPPROVED', 'WITH_ISSUES'];
 
 const STAGE_HINT = {
   build:  'Approved in the plan and not built yet. Building uploads the creative, writes the copy in, names it to the taxonomy and stamps the UTMs — paused.',
   paused: 'Built and waiting in Ads Manager. Targeting, budget and setting it live happen there, so the decision to spend has a name against it.',
-  live:   'Running now. Editing copy on a live ad replaces the creative and resets its learning, so it is a considered change rather than a quick one.'
+  live:   'Read from the ad account, not the plan. Editing copy on a live ad replaces the creative and resets its learning, so it is a considered change rather than a quick one.'
 };
 
 /* ============================================================
@@ -323,9 +339,9 @@ const API = {
     if (!API_BASE) return MOCK.clients;
     return (await call('/api/ads/clients')).clients || [];
   },
-  async rows(clientId, stage) {
-    if (!API_BASE) return MOCK.rows;
-    return (await call(`/api/ads/queue?client=${encodeURIComponent(clientId)}&stage=${stage}`)).rows || [];
+  async queue(clientId) {
+    if (!API_BASE) return { rows: MOCK.rows, unplanned: [], meta_read: true };
+    return call(`/api/ads/queue?client=${encodeURIComponent(clientId)}`);
   },
   async adSets(clientId) {
     if (!API_BASE) return MOCK.adSets;
@@ -363,7 +379,9 @@ function stageOf(r) {
 function renderList() {
   const list = $('#list');
   list.innerHTML = '';
-  $('#stageHint').textContent = STAGE_HINT[state.stage];
+  $('#stageHint').innerHTML = esc(STAGE_HINT[state.stage]) + (state.metaRead ? ''
+    : ` <b style="color:var(--warn);">The ad account could not be read just now, so these
+        statuses come from the plan rather than from Meta.</b>`);
 
   const rows = state.rows.filter(r => stageOf(r) === state.stage);
 
@@ -383,6 +401,45 @@ function renderList() {
   }
 
   rows.forEach(r => list.appendChild(rowCard(r)));
+
+  // Only on the Live tab, because that is the tab that claims to show what is
+  // running. An ad delivering with no plan row behind it is the thing nobody
+  // goes looking for.
+  if (state.stage === 'live' && state.unplanned.length) {
+    const head = el('div','hint');
+    head.style.marginTop = '22px';
+    head.innerHTML = `<b style="color:var(--warn);">Running, but not in the plan</b> —
+      ${state.unplanned.length} ad${state.unplanned.length === 1 ? '' : 's'} delivering in this
+      account with no matching plan row. Either the plan is missing them, or they were built
+      outside the usual route.`;
+    list.appendChild(head);
+
+    state.unplanned.forEach(a => {
+      const card = el('div','row');
+      const t = el('div','thumb', a.thumbnail ? '' : 'META');
+      if (a.thumbnail) {
+        const img = el('img'); img.src = a.thumbnail; img.alt = '';
+        img.onerror = () => { t.innerHTML = 'META'; };
+        t.appendChild(img);
+      }
+      card.appendChild(t);
+      const mid = el('div','mid');
+      mid.appendChild(el('h3', null, esc(a.ad_name || a.ad_id)));
+      mid.appendChild(el('div','meta',
+        `${esc(a.campaign_name || '')} &middot; ${esc(a.adset_name || '')}`));
+      const chips = el('div','chips');
+      chips.appendChild(el('span','chip ok', esc(META_LABEL[a.effective_status] || a.effective_status)));
+      chips.appendChild(el('span','chip warn','Not in the plan'));
+      mid.appendChild(chips);
+      card.appendChild(mid);
+      const acts = el('div','acts');
+      const open = el('button','btn','Open in Ads Manager');
+      open.onclick = () => window.open(adsManagerUrl(state.clientId, a.adset_id), '_blank', 'noopener');
+      acts.appendChild(open);
+      card.appendChild(acts);
+      list.appendChild(card);
+    });
+  }
 }
 
 function rowCard(r) {
@@ -405,12 +462,25 @@ function rowCard(r) {
   const chips = el('div','chips');
   const chip = (cls, text) => chips.appendChild(el('span', `chip ${cls}`, esc(text)));
 
-  chip(r.copy ? 'ok' : 'warn', r.copy ? 'Copy ready' : 'No copy in the plan');
-  chip(r.asset_ok ? 'ok' : 'warn', r.asset_ok ? 'Files in Drive' : r.asset_label);
-  chip(r.utm_ok ? 'ok' : 'warn', r.utm_ok ? 'UTMs valid' : 'UTMs not set');
+  // Once an ad exists in the account, what Meta says about it matters more
+  // than whether the plan row was tidy, so it leads.
+  if (r.meta_status) {
+    chip(META_BAD.includes(r.meta_status) ? 'warn' : (r.live ? 'ok' : 'plain'),
+         META_LABEL[r.meta_status] || r.meta_status);
+  } else {
+    chip(r.copy ? 'ok' : 'warn', r.copy ? 'Copy ready' : 'No copy in the plan');
+    chip(r.asset_ok ? 'ok' : 'warn', r.asset_ok ? 'Files in Drive' : r.asset_label);
+    chip(r.utm_ok ? 'ok' : 'warn', r.utm_ok ? 'UTMs valid' : 'UTMs not set');
+  }
   if (r.adset_name) chip('plain', r.adset_name);
   else if (!r.built) chip('warn', 'No ad set chosen');
   mid.appendChild(chips);
+
+  if (r.drifted) {
+    mid.appendChild(el('div','why', r.plan_says_live
+      ? 'The plan says this is live, but it is not delivering in Ads Manager.'
+      : 'This is delivering, but the plan has not been marked live.'));
+  }
 
   if (!r.asset_ok) {
     mid.appendChild(el('div','why','The Drive folder is empty, so there is nothing to upload yet.'));
@@ -639,9 +709,13 @@ async function load() {
   const client = state.clients.find(c => c.id === state.clientId);
   $('#who').textContent = client ? client.name : '';
   try {
-    state.rows = await API.rows(state.clientId, state.stage);
+    const q = await API.queue(state.clientId);
+    state.rows = q.rows || [];
+    state.unplanned = q.unplanned || [];
+    state.metaRead = q.meta_read !== false;
+    if (q.error) toast('The plan did not load cleanly. ' + q.error);
   } catch (e) {
-    state.rows = [];
+    state.rows = []; state.unplanned = []; state.metaRead = false;
     toast('Could not load the queue. ' + e.message);
   }
   state.loading = false;
