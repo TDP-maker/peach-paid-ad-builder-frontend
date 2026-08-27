@@ -588,19 +588,29 @@ function renderList() {
       // every load.
       if (a.candidates && a.candidates.length) {
         const pick = el('div','why');
-        pick.innerHTML = 'This looks like one of these. Which is it?';
+        pick.innerHTML = 'Which plan row is this? Compare against the creative on the left.';
         mid.appendChild(pick);
-        const opts = el('div','chips');
-        opts.style.marginTop = '6px';
+
+        // The plan's own screenshot beside each name. Confirming a match from a
+        // name alone is guessing; two pictures side by side is a glance.
+        const opts = el('div','cands');
         a.candidates.forEach(c => {
-          const b = el('button','btn sm', esc(c.name));
+          const b = el('button','cand');
+          b.innerHTML = `<span class="cand-img">${
+              c.screenshot ? `<img src="${esc(c.screenshot)}" alt="" onerror="this.remove()">` : ''
+            }</span>
+            <span class="cand-txt"><b>${esc(c.name)}</b><i>${esc(c.month || '')}</i></span>`;
           b.onclick = async () => {
-            b.disabled = true; b.textContent = 'Linking…';
+            b.disabled = true;
+            b.querySelector('.cand-txt').innerHTML = '<b>Linking…</b>';
             try {
               await API.link(state.clientId, c.key, a.ad_id, a.ad_name);
               toast('Linked. It will show against that row from now on.');
               load();
-            } catch (e) { b.disabled = false; toast('Could not link it. ' + e.message); }
+            } catch (e) {
+              toast('Could not link it. ' + e.message);
+              load();
+            }
           };
           opts.appendChild(b);
         });
