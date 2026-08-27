@@ -410,13 +410,13 @@ function renderList() {
   $('#nPaused').textContent = counts.paused;
   $('#nLive').textContent   = counts.live;
 
-  // A client missing from the taxonomy sheet is checked by nothing at all, and
-  // that looks exactly like a client with no problems. Said at the top, before
-  // the queue, because it is the one thing on this page nobody would notice.
-  // One problem, stated once, with the thing to change and where. A blocker
-  // repeated down every row reads as four problems and sends someone hunting
-  // for a rule they have not been told the location of.
-  if (state.blocker) {
+  // One problem, stated once, with the thing to change and where — a blocker
+  // repeated down every row reads as four problems.
+  //
+  // Scoped to the build tab and to a queue with something in it. Rows that are
+  // already live still carry their naming notes, and without that check the
+  // banner read those as a client-wide blocker and drew over every tab.
+  if (state.blocker && state.stage === 'build' && rows.length) {
     const b = state.blocker;
     const box = el('div','note-block');
     let html = `<b>Nothing can be built for this client yet.</b>${esc(b.message)}.`;
@@ -434,7 +434,7 @@ function renderList() {
       box.appendChild(open);
     }
     list.appendChild(box);
-  } else if (state.taxonomy && state.taxonomy.mapped === false) {
+  } else if (state.taxonomy && state.taxonomy.mapped === false && state.stage === 'build') {
     const warn = el('div','note-block');
     warn.innerHTML = `<b>This client is not in the taxonomy sheet.</b>
       Nothing is checking their campaign, ad set or ad names, or their tracking,
