@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Paid ads — The Peach System</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --navy:#324158; --coral:#ff4f51; --coral-lt:#ff7375; --coral-wash:#fff2f2;
+  --white:#ffffff; --ink:#324158; --muted:#5d6a7d; --faint:#8d98a8;
+  --hair:#e6e9ee; --hair-lt:#f1f3f6; --wash:#f7f8fa;
+  --ok:#2f855a; --ok-wash:#eefaf2; --warn:#9a6b00; --warn-wash:#fff8e8;
+  --font:'DM Sans',-apple-system,BlinkMacSystemFont,sans-serif;
+  --mono:'DM Mono',ui-monospace,monospace;
+}
+*{box-sizing:border-box;}
+body{margin:0;background:var(--white);font-family:var(--font);color:var(--ink);
+  -webkit-font-smoothing:antialiased;font-size:14px;}
+button{font-family:var(--font);}
+
+.shell{display:grid;grid-template-columns:220px 1fr;min-height:100vh;}
+
+/* ---------------------------------------------------------------- rail --- */
+.rail{border-right:1px solid var(--hair);padding:22px 0;background:var(--white);}
+.rail h6{margin:0 0 10px 20px;font-size:10px;font-weight:700;letter-spacing:.08em;
+  text-transform:uppercase;color:var(--faint);}
+.rail button{display:flex;width:100%;align-items:center;gap:9px;border:0;background:none;
+  padding:9px 20px;font-size:13px;color:var(--muted);cursor:pointer;text-align:left;}
+.rail button:hover{background:var(--wash);}
+.rail button.on{color:var(--coral);font-weight:600;background:var(--coral-wash);}
+.rail .dot{width:6px;height:6px;border-radius:50%;background:var(--ok);flex:0 0 auto;}
+.rail .dot.bad{background:var(--coral);}
+.rail .n{margin-left:auto;font-family:var(--mono);font-size:11.5px;color:var(--faint);}
+.rail button.on .n{color:var(--coral);}
+.railnote{margin:16px 20px 0;font-size:11px;color:var(--faint);line-height:1.5;}
+
+/* ---------------------------------------------------------------- main --- */
+.main{padding:22px 26px 60px;min-width:0;}
+.top{display:flex;align-items:flex-end;gap:22px;border-bottom:1px solid var(--hair);
+  padding-bottom:12px;margin-bottom:6px;flex-wrap:wrap;}
+.tab{font-size:13px;font-weight:600;color:var(--faint);padding-bottom:11px;margin-bottom:-13px;
+  cursor:pointer;border-bottom:2px solid transparent;background:none;border-top:0;
+  border-left:0;border-right:0;}
+.tab.on{color:var(--ink);border-bottom-color:var(--coral);}
+.tab em{font-style:normal;font-weight:400;color:var(--faint);margin-left:5px;}
+.top .right{margin-left:auto;display:flex;align-items:center;gap:10px;padding-bottom:9px;}
+.who{font-size:12px;color:var(--faint);}
+.hint{font-size:11.5px;color:var(--faint);line-height:1.5;margin:12px 0 16px;}
+
+.row{background:var(--white);border:1px solid var(--hair);border-radius:12px;
+  padding:14px 16px;margin-bottom:10px;display:flex;gap:14px;align-items:flex-start;}
+.row.blocked{opacity:.62;}
+.thumb{width:56px;height:70px;border-radius:8px;background:var(--hair-lt);flex:0 0 auto;
+  display:flex;align-items:center;justify-content:center;overflow:hidden;
+  font-size:9px;font-weight:700;letter-spacing:.06em;color:var(--faint);}
+.thumb img{width:100%;height:100%;object-fit:cover;display:block;}
+.mid{flex:1;min-width:0;}
+.mid h3{margin:0;font-size:13px;font-weight:600;}
+.meta{font-size:11.5px;color:var(--faint);margin:2px 0 9px;}
+.chips{display:flex;flex-wrap:wrap;gap:6px;}
+.chip{font-size:11px;padding:3px 8px;border-radius:5px;font-weight:600;}
+.chip.ok{background:var(--ok-wash);color:var(--ok);}
+.chip.warn{background:var(--warn-wash);color:var(--warn);}
+.chip.plain{background:var(--wash);color:var(--muted);font-weight:400;}
+.why{font-size:11.5px;color:var(--faint);margin-top:8px;}
+.acts{display:flex;flex-direction:column;gap:6px;flex:0 0 auto;}
+
+.btn{font-size:12px;font-weight:600;padding:8px 14px;border-radius:8px;cursor:pointer;
+  border:1px solid var(--hair);background:var(--white);color:var(--muted);white-space:nowrap;}
+.btn:hover{border-color:var(--coral);color:var(--coral);}
+.btn.go{background:var(--coral);border-color:var(--coral);color:#fff;}
+.btn.go:hover{background:#ef4547;}
+.btn:disabled{opacity:.5;cursor:default;border-color:var(--hair);color:var(--faint);}
+.btn.sm{padding:6px 11px;font-size:11.5px;}
+
+.empty{text-align:center;padding:60px 20px;color:var(--faint);}
+.empty h3{margin:0 0 6px;font-size:15px;font-weight:600;color:var(--ink);}
+.empty p{margin:0;font-size:13px;}
+
+/* ------------------------------------------------------------- overlay --- */
+.scrim{position:fixed;inset:0;background:rgba(50,65,88,.34);display:none;
+  align-items:center;justify-content:center;padding:20px;z-index:40;}
+.scrim.open{display:flex;}
+.panel{background:var(--white);border-radius:14px;width:min(760px,100%);max-height:90vh;
+  overflow-y:auto;box-shadow:0 12px 48px rgba(50,65,88,.22);}
+.panel.narrow{width:min(460px,100%);}
+.phead{display:flex;align-items:center;justify-content:space-between;gap:14px;
+  padding:14px 18px;border-bottom:1px solid var(--hair-lt);}
+.phead h4{margin:0;font-size:14px;font-weight:600;}
+.phead .sub{font-size:11.5px;color:var(--faint);margin-top:2px;}
+.seg{display:flex;background:var(--wash);border-radius:8px;padding:3px;flex:0 0 auto;}
+.seg button{border:0;background:none;font-size:11.5px;font-weight:600;padding:5px 12px;
+  border-radius:6px;color:var(--faint);cursor:pointer;}
+.seg button.on{background:var(--white);color:var(--ink);}
+.pbody{display:grid;grid-template-columns:300px 1fr;gap:22px;padding:18px;}
+.pbody.one{grid-template-columns:1fr;}
+
+.frame{border:1px solid var(--hair);border-radius:12px;overflow:hidden;}
+.ig-top{display:flex;align-items:center;gap:8px;padding:9px 11px;}
+.av{width:28px;height:28px;border-radius:50%;background:var(--wash);display:flex;
+  align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--muted);}
+.ig-top b{font-size:12px;font-weight:600;display:block;line-height:1.2;}
+.ig-top span{font-size:10.5px;color:var(--faint);}
+.media{width:100%;aspect-ratio:4/5;background:var(--hair-lt);display:flex;
+  align-items:center;justify-content:center;font-size:10px;font-weight:700;
+  letter-spacing:.06em;color:var(--faint);}
+.media img{width:100%;height:100%;object-fit:cover;display:block;}
+.cta{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 11px;
+  border-top:1px solid var(--hair-lt);border-bottom:1px solid var(--hair-lt);}
+.cta b{font-size:12.5px;font-weight:600;}
+.cta small{font-size:11px;color:var(--faint);display:block;}
+.cta .goto{font-size:11.5px;font-weight:600;color:var(--coral);white-space:nowrap;}
+.copy{padding:10px 11px;font-size:12.5px;line-height:1.5;}
+.copy .fold{color:var(--faint);}
+.story{position:relative;aspect-ratio:9/16;background:#1b2230;}
+.story img{width:100%;height:100%;object-fit:cover;display:block;}
+.story .band{position:absolute;left:0;right:0;bottom:0;padding:14px 12px;
+  background:linear-gradient(transparent,rgba(0,0,0,.72));color:#fff;}
+.story .band b{display:block;font-size:12.5px;font-weight:600;}
+.story .swipe{margin-top:8px;background:rgba(255,255,255,.92);color:#111;border-radius:20px;
+  text-align:center;padding:7px;font-size:11.5px;font-weight:600;}
+
+.checks h5{margin:0 0 10px;font-size:11px;font-weight:600;letter-spacing:.06em;
+  text-transform:uppercase;color:var(--faint);}
+.chk{display:flex;gap:9px;align-items:flex-start;font-size:12.5px;line-height:1.5;
+  margin-bottom:9px;}
+.chk i{font-style:normal;font-weight:700;width:14px;flex:0 0 auto;}
+.chk.ok i{color:var(--ok);} .chk.warn i{color:var(--warn);}
+.chk b{font-weight:600;} .chk span{color:var(--faint);}
+.pfoot{margin-top:18px;padding-top:14px;border-top:1px solid var(--hair-lt);
+  display:flex;gap:8px;flex-wrap:wrap;}
+.plist{padding:6px 0 14px;}
+.plist button{display:flex;width:100%;text-align:left;border:0;background:none;
+  padding:11px 18px;cursor:pointer;border-bottom:1px solid var(--hair-lt);align-items:center;gap:10px;}
+.plist button:hover{background:var(--wash);}
+.plist b{font-size:12.5px;font-weight:600;display:block;}
+.plist span{font-size:11px;color:var(--faint);}
+
+.toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:var(--navy);
+  color:#fff;font-size:12.5px;padding:10px 16px;border-radius:9px;z-index:80;
+  box-shadow:0 8px 24px rgba(50,65,88,.24);max-width:min(520px,90vw);}
+
+@media(max-width:820px){
+  .shell{grid-template-columns:1fr;}
+  .rail{border-right:0;border-bottom:1px solid var(--hair);padding:14px 0;}
+  .rail button{padding:8px 16px;}
+  .main{padding:16px;}
+  .pbody{grid-template-columns:1fr;}
+  .row{flex-wrap:wrap;}
+  .acts{flex-direction:row;width:100%;}
+}
+</style>
+</head>
+<body>
+
+<div class="shell">
+  <aside class="rail">
+    <h6>Clients</h6>
+    <div id="rail"></div>
+    <div class="railnote">Nothing here spends money. Building creates the ad paused in
+      Ads Manager, named and tagged, for someone to check and set live.</div>
+  </aside>
+
+  <main class="main">
+    <div class="top">
+      <button class="tab on" data-stage="build">To build <em id="nBuild">0</em></button>
+      <button class="tab" data-stage="paused">Built, paused <em id="nPaused">0</em></button>
+      <button class="tab" data-stage="live">Live <em id="nLive">0</em></button>
+      <div class="right">
+        <span class="who" id="who"></span>
+        <button class="btn sm" id="refresh">Refresh</button>
+      </div>
+    </div>
+    <div class="hint" id="stageHint"></div>
+    <div id="list"></div>
+  </main>
+</div>
+
+<div class="scrim" id="overlay"></div>
+
+<script>
+const API_BASE = '';   // set to the peach-ads-console worker once it exists
+
+/* ============================================================
+   AUTH — same bridge as the scheduler: Softr session in, admin key as the
+   fallback for opening the page directly.
+   ============================================================ */
+const SOFTR_PARENT_ORIGIN = 'https://app.thepeachsystem.com';
+let bridgedToken = null;
+let tokenWaiters = [];
+
+function getRawToken() {
+  try {
+    const c = document.cookie.split(';').find(x => x.trim().startsWith('jwtToken='));
+    return c ? (c.trim().split('=').slice(1).join('=') || null) : null;
+  } catch { return null; }
+}
+
+window.addEventListener('message', ev => {
+  if (ev.origin !== SOFTR_PARENT_ORIGIN) return;
+  if (ev.data && ev.data.type === 'softr-jwt' && ev.data.jwt) {
+    bridgedToken = ev.data.jwt;
+    const ws = tokenWaiters; tokenWaiters = [];
+    ws.forEach(w => { try { w(bridgedToken); } catch {} });
+  }
+});
+
+function requestTokenFromParent() {
+  try {
+    if (window.parent && window.parent !== window) {
+      window.parent.postMessage({ type: 'request-softr-jwt' }, SOFTR_PARENT_ORIGIN);
+    }
+  } catch {}
+}
+requestTokenFromParent();
+
+function waitForToken(timeoutMs) {
+  if (bridgedToken) return Promise.resolve(bridgedToken);
+  requestTokenFromParent();
+  return new Promise(resolve => {
+    let done = false;
+    const w = tok => { if (!done) { done = true; resolve(tok); } };
+    tokenWaiters.push(w);
+    setTimeout(() => {
+      if (!done) {
+        done = true;
+        const i = tokenWaiters.indexOf(w);
+        if (i >= 0) tokenWaiters.splice(i, 1);
+        resolve(bridgedToken);
+      }
+    }, timeoutMs);
+  });
+}
+
+function adminKey() {
+  let k = sessionStorage.getItem('peach_ads_key');
+  if (!k) {
+    k = window.prompt('Ads console key (or open this from The Peach System instead)') || '';
+    if (k) sessionStorage.setItem('peach_ads_key', k);
+  }
+  return k;
+}
+
+async function call(path, opts = {}) {
+  let token = bridgedToken || getRawToken();
+  if (!token) token = await waitForToken(1500);
+  const headers = { 'Content-Type': 'application/json', ...(opts.headers || {}) };
+  if (token) headers['Authorization'] = 'Bearer ' + token;
+  else headers['x-admin-key'] = adminKey();
+  const res = await fetch(`${API_BASE}${path}`, { ...opts, headers });
+  if (res.status === 401) { sessionStorage.removeItem('peach_ads_key'); throw new Error('not signed in'); }
+  if (!res.ok) throw new Error(`${path} returned ${res.status}`);
+  return res.json();
+}
+
+/* ============================================================
+   HELPERS
+   ============================================================ */
+const $  = s => document.querySelector(s);
+const el = (t,c,h) => { const n=document.createElement(t); if(c)n.className=c; if(h!==undefined)n.innerHTML=h; return n; };
+const esc = s => String(s ?? '').replace(/[&<>"']/g, m =>
+  ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+
+function toast(msg) {
+  const t = el('div','toast', esc(msg));
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 4200);
+}
+
+// Meta cuts primary text at roughly 125 characters on mobile feed and headlines
+// at about 40. Guidance rather than hard limits, so the preview marks the fold
+// rather than refusing the copy.
+const PRIMARY_FOLD = 125;
+const HEADLINE_FOLD = 40;
+
+// Ads Manager takes ids in the URL, so a handoff can land on the exact thing
+// that was just built rather than on an account overview.
+const adsManagerUrl = (actId, adSetId) =>
+  `https://adsmanager.facebook.com/adsmanager/manage/ads?act=${String(actId).replace('act_','')}` +
+  (adSetId ? `&selected_adset_ids=${adSetId}` : '');
+
+const state = { clients: [], clientId: null, stage: 'build', rows: [], adSets: [], loading: false };
+
+const STAGE_HINT = {
+  build:  'Approved in the plan and not built yet. Building uploads the creative, writes the copy in, names it to the taxonomy and stamps the UTMs — paused.',
+  paused: 'Built and waiting in Ads Manager. Targeting, budget and setting it live happen there, so the decision to spend has a name against it.',
+  live:   'Running now. Editing copy on a live ad replaces the creative and resets its learning, so it is a considered change rather than a quick one.'
+};
+
+/* ============================================================
+   MOCK — so the page renders before the worker exists
+   ============================================================ */
+const MOCK = {
+  clients: [
+    { id:'act_593987509572686', name:'Rex Real Estate', ready:true },
+    { id:'act_2306842206753027', name:'The Peach System', ready:true },
+    { id:'act_356911461958417', name:'The Digital Peach', ready:false }
+  ],
+  rows: [
+    { plan_key:'ad|1', no:4, month:'August 2026', name:'Marina views — carousel',
+      copy:'Three bedrooms, a private terrace and a view of the marina. Handover in Q4, and the payment plan runs to 2028 with nothing due on completion.',
+      headline:'Book a viewing today', screenshot:'', asset_ok:true, asset_label:'In Drive',
+      formats:'Square, Vertical', platform:'Instagram, Facebook', adset_id:'123', adset_name:'Traffic › Marina Aug',
+      utm_ok:true, built:false, live:false },
+    { plan_key:'ad|2', no:5, month:'August 2026', name:'Handover Q4 — single image',
+      copy:'Completion this quarter.', headline:'See the floor plans', screenshot:'',
+      asset_ok:true, asset_label:'In Drive', formats:'Square', platform:'Instagram',
+      adset_id:null, adset_name:null, utm_ok:true, built:false, live:false },
+    { plan_key:'ad|3', no:6, month:'August 2026', name:'Payment plan — reel',
+      copy:'Nothing due on completion.', headline:'How the plan works', screenshot:'',
+      asset_ok:false, asset_label:'Waiting on final files', formats:'Vertical',
+      platform:'Instagram', adset_id:null, adset_name:null, utm_ok:false, built:false, live:false }
+  ],
+  adSets: [
+    { id:'123', name:'Traffic › Marina Aug', campaign:'Rex — Traffic — Aug 2026', status:'ACTIVE' },
+    { id:'124', name:'Leads › Handover',     campaign:'Rex — Leads — Aug 2026',   status:'PAUSED' }
+  ]
+};
+
+const API = {
+  async clients() {
+    if (!API_BASE) return MOCK.clients;
+    return (await call('/api/ads/clients')).clients || [];
+  },
+  async rows(clientId, stage) {
+    if (!API_BASE) return MOCK.rows;
+    return (await call(`/api/ads/queue?client=${encodeURIComponent(clientId)}&stage=${stage}`)).rows || [];
+  },
+  async adSets(clientId) {
+    if (!API_BASE) return MOCK.adSets;
+    return (await call(`/api/ads/adsets?client=${encodeURIComponent(clientId)}`)).adsets || [];
+  },
+  // Creates the ad paused. The worker is the only thing that talks to Meta.
+  async build(clientId, planKey, adSetId) {
+    if (!API_BASE) { await new Promise(r => setTimeout(r, 700)); return { ok:true, ad_id:'0000' }; }
+    return call('/api/ads/build', { method:'POST',
+      body: JSON.stringify({ client_id: clientId, plan_key: planKey, adset_id: adSetId }) });
+  }
+};
+
+/* ============================================================
+   RAIL + LIST
+   ============================================================ */
+function renderRail() {
+  const rail = $('#rail');
+  rail.innerHTML = '';
+  state.clients.forEach(c => {
+    const b = el('button', c.id === state.clientId ? 'on' : null);
+    b.innerHTML = `<span class="dot${c.ready ? '' : ' bad'}"></span>
+      <span>${esc(c.name)}</span>`;
+    b.onclick = () => { state.clientId = c.id; load(); };
+    rail.appendChild(b);
+  });
+}
+
+function stageOf(r) {
+  if (r.live) return 'live';
+  if (r.built) return 'paused';
+  return 'build';
+}
+
+function renderList() {
+  const list = $('#list');
+  list.innerHTML = '';
+  $('#stageHint').textContent = STAGE_HINT[state.stage];
+
+  const rows = state.rows.filter(r => stageOf(r) === state.stage);
+
+  const counts = { build:0, paused:0, live:0 };
+  state.rows.forEach(r => counts[stageOf(r)]++);
+  $('#nBuild').textContent  = counts.build;
+  $('#nPaused').textContent = counts.paused;
+  $('#nLive').textContent   = counts.live;
+
+  if (state.loading) { list.appendChild(el('div','empty','<p>Loading…</p>')); return; }
+
+  if (!rows.length) {
+    list.appendChild(el('div','empty', state.stage === 'build'
+      ? `<h3>Nothing waiting to be built</h3><p>Approved ads with no Meta ad against them appear here.</p>`
+      : `<h3>Nothing here</h3><p>Ads move into this list as they are built and set live.</p>`));
+    return;
+  }
+
+  rows.forEach(r => list.appendChild(rowCard(r)));
+}
+
+function rowCard(r) {
+  const blocked = !r.asset_ok;
+  const card = el('div', `row${blocked ? ' blocked' : ''}`);
+
+  const thumb = el('div','thumb', r.screenshot ? '' : esc(shapeOf(r)));
+  if (r.screenshot) {
+    const img = el('img'); img.src = r.screenshot; img.alt = '';
+    img.onerror = () => { thumb.innerHTML = esc(shapeOf(r)); };
+    thumb.appendChild(img);
+  }
+  card.appendChild(thumb);
+
+  const mid = el('div','mid');
+  mid.appendChild(el('h3', null, esc(r.name || `Ad #${r.no}`)));
+  mid.appendChild(el('div','meta',
+    `Ad ${r.no} &middot; ${esc(r.formats || '—')} &middot; ${esc(r.platform || '—')}`));
+
+  const chips = el('div','chips');
+  const chip = (cls, text) => chips.appendChild(el('span', `chip ${cls}`, esc(text)));
+
+  chip(r.copy ? 'ok' : 'warn', r.copy ? 'Copy ready' : 'No copy in the plan');
+  chip(r.asset_ok ? 'ok' : 'warn', r.asset_ok ? 'Files in Drive' : r.asset_label);
+  chip(r.utm_ok ? 'ok' : 'warn', r.utm_ok ? 'UTMs valid' : 'UTMs not set');
+  if (r.adset_name) chip('plain', r.adset_name);
+  else if (!r.built) chip('warn', 'No ad set chosen');
+  mid.appendChild(chips);
+
+  if (!r.asset_ok) {
+    mid.appendChild(el('div','why','The Drive folder is empty, so there is nothing to upload yet.'));
+  } else if (!r.adset_id && !r.built) {
+    mid.appendChild(el('div','why','Pick where it goes before this can be built.'));
+  }
+  card.appendChild(mid);
+
+  const acts = el('div','acts');
+
+  if (stageOf(r) === 'build') {
+    if (r.asset_ok && r.adset_id) {
+      const b = el('button','btn go','Build it');
+      b.onclick = () => doBuild(r, b);
+      acts.appendChild(b);
+    } else if (r.asset_ok) {
+      const b = el('button','btn','Choose ad set');
+      b.onclick = () => chooseAdSet(r);
+      acts.appendChild(b);
+    }
+  } else {
+    const open = el('button','btn go','Open in Ads Manager');
+    open.onclick = () => window.open(adsManagerUrl(state.clientId, r.adset_id), '_blank', 'noopener');
+    acts.appendChild(open);
+  }
+
+  const prev = el('button','btn','Preview');
+  prev.onclick = () => openPreview(r);
+  acts.appendChild(prev);
+  card.appendChild(acts);
+
+  return card;
+}
+
+function shapeOf(r) {
+  const f = String(r.formats || '').toLowerCase();
+  if (f.includes('vertical')) return '9:16';
+  if (f.includes('square')) return '1:1';
+  return '4:5';
+}
+
+/* ============================================================
+   PREVIEW
+   ============================================================ */
+function openPreview(r) {
+  const client = state.clients.find(c => c.id === state.clientId) || {};
+  const handle = (client.name || 'account').toLowerCase().replace(/[^a-z0-9]+/g,'');
+  const initial = (client.name || '?').trim().charAt(0).toUpperCase();
+  const primary = r.copy || '';
+  const headline = r.headline || '';
+  const folded = primary.length > PRIMARY_FOLD;
+  const shown = folded
+    ? esc(primary.slice(0, PRIMARY_FOLD)) + '<span class="fold">… more</span>'
+    : esc(primary);
+
+  const panel = el('div','panel');
+
+  const head = el('div','phead');
+  head.innerHTML = `<div><h4>${esc(r.name || 'Ad ' + r.no)}</h4>
+    <div class="sub">${esc(client.name || '')} &middot; ${esc(r.month)} &middot; Ad ${r.no}</div></div>`;
+  const seg = el('div','seg');
+  const bFeed = el('button','on','Feed');
+  const bStory = el('button',null,'Story');
+  seg.appendChild(bFeed); seg.appendChild(bStory);
+  head.appendChild(seg);
+  panel.appendChild(head);
+
+  const body = el('div','pbody');
+
+  const left = el('div');
+  const feed = el('div','frame');
+  feed.innerHTML = `
+    <div class="ig-top">
+      <div class="av">${esc(initial)}</div>
+      <div><b>${esc(handle)}</b><span>Sponsored</span></div>
+    </div>
+    <div class="media">${r.screenshot ? `<img src="${esc(r.screenshot)}" alt="">` : 'CREATIVE'}</div>
+    <div class="cta">
+      <div><b>${esc(headline || 'No headline in the plan')}</b><small>${esc(client.name || '')}</small></div>
+      <div class="goto">Learn more</div>
+    </div>
+    <div class="copy"><b>${esc(handle)}</b> ${shown || '<span class="fold">No primary text in the plan</span>'}</div>`;
+
+  const story = el('div','frame');
+  story.style.display = 'none';
+  story.innerHTML = `
+    <div class="story">
+      ${r.screenshot ? `<img src="${esc(r.screenshot)}" alt="">` : ''}
+      <div class="band"><b>${esc(headline || client.name || '')}</b>
+        <div class="swipe">Learn more</div></div>
+    </div>`;
+
+  bFeed.onclick  = () => { feed.style.display=''; story.style.display='none'; bFeed.classList.add('on'); bStory.classList.remove('on'); };
+  bStory.onclick = () => { feed.style.display='none'; story.style.display=''; bStory.classList.add('on'); bFeed.classList.remove('on'); };
+
+  left.appendChild(feed); left.appendChild(story);
+  body.appendChild(left);
+
+  const checks = el('div','checks');
+  checks.appendChild(el('h5', null, 'Before it goes to Ads Manager'));
+  const line = (ok, label, detail) => {
+    const d = el('div', `chk ${ok ? 'ok' : 'warn'}`);
+    d.innerHTML = `<i>${ok ? '&#10003;' : '!'}</i><div><b>${esc(label)}</b>` +
+      (detail ? `<br><span>${esc(detail)}</span>` : '') + '</div>';
+    checks.appendChild(d);
+  };
+
+  line(Boolean(primary) && !folded,
+    primary ? `Primary text runs to ${primary.length} characters` : 'No primary text',
+    folded ? `Cut at ${PRIMARY_FOLD} on mobile. The first line has to carry it.` : '');
+  line(Boolean(headline) && headline.length <= HEADLINE_FOLD,
+    headline ? `Headline, ${headline.length} characters` : 'No headline',
+    headline.length > HEADLINE_FOLD ? `Over ${HEADLINE_FOLD}, so it may truncate.` : '');
+  line(r.asset_ok, r.asset_ok ? 'Source files in Drive' : r.asset_label,
+    r.asset_ok ? esc(r.formats || '') : 'Needed before this can be built.');
+  line(r.utm_ok, r.utm_ok ? 'UTMs valid' : 'UTMs not set',
+    r.utm_ok ? '' : 'Tracking would be missing on every click.');
+  line(!r.live, r.live ? 'Running now' : 'Not running yet',
+    r.live ? 'Changing copy replaces the creative and resets learning.' : 'Never been set live');
+
+  const foot = el('div','pfoot');
+  const copyBtn = el('button','btn go','Copy caption');
+  copyBtn.onclick = async () => {
+    try {
+      await navigator.clipboard.writeText([primary, headline].filter(Boolean).join('\n\n'));
+      toast('Caption copied.');
+    } catch { toast('Could not copy it here.'); }
+  };
+  foot.appendChild(copyBtn);
+  const close = el('button','btn','Close');
+  close.onclick = closeOverlay;
+  foot.appendChild(close);
+  checks.appendChild(foot);
+
+  body.appendChild(checks);
+  panel.appendChild(body);
+  showOverlay(panel);
+}
+
+/* ============================================================
+   AD SET CHOICE — read from Meta, never invented here
+   ============================================================ */
+async function chooseAdSet(r) {
+  const panel = el('div','panel narrow');
+  panel.innerHTML = `<div class="phead"><div><h4>Where does this ad go?</h4>
+    <div class="sub">Ad sets already in the account. Targeting and budget stay in Ads Manager.</div>
+  </div></div><div class="plist" id="setlist"><div class="empty"><p>Loading…</p></div></div>`;
+  showOverlay(panel);
+
+  let sets = [];
+  try { sets = await API.adSets(state.clientId); }
+  catch (e) { toast('Could not read the ad sets. ' + e.message); }
+
+  const listEl = panel.querySelector('#setlist');
+  listEl.innerHTML = '';
+  if (!sets.length) {
+    listEl.appendChild(el('div','empty',
+      `<h3>No ad sets yet</h3><p>Create one in Ads Manager, then come back.</p>`));
+  }
+  sets.forEach(s => {
+    const b = el('button');
+    b.innerHTML = `<div><b>${esc(s.name)}</b><span>${esc(s.campaign)} &middot; ${esc(s.status)}</span></div>`;
+    b.onclick = () => {
+      r.adset_id = s.id; r.adset_name = s.name;
+      closeOverlay(); renderList();
+    };
+    listEl.appendChild(b);
+  });
+
+  const foot = el('div','pfoot');
+  foot.style.padding = '0 18px 16px';
+  const open = el('button','btn','Build one in Ads Manager');
+  open.onclick = () => window.open(adsManagerUrl(state.clientId), '_blank', 'noopener');
+  const close = el('button','btn','Cancel');
+  close.onclick = closeOverlay;
+  foot.appendChild(open); foot.appendChild(close);
+  panel.appendChild(foot);
+}
+
+/* ============================================================
+   BUILD
+   ============================================================ */
+async function doBuild(r, btn) {
+  if (!window.confirm(
+    `Build "${r.name}" in ${((state.clients.find(c => c.id === state.clientId)||{}).name)}?\n\n` +
+    `It goes into ${r.adset_name}, paused.\n\nNothing spends until someone sets it live in Ads Manager.`)) return;
+
+  btn.disabled = true; btn.textContent = 'Building…';
+  try {
+    const out = await API.build(state.clientId, r.plan_key, r.adset_id);
+    r.built = true; r.ad_id = out.ad_id;
+    renderList();
+    toast('Built and paused. Open it in Ads Manager to set targeting and go live.');
+  } catch (e) {
+    btn.disabled = false; btn.textContent = 'Build it';
+    toast('Could not build it. ' + e.message);
+  }
+}
+
+/* ============================================================
+   OVERLAY + BOOT
+   ============================================================ */
+function showOverlay(panel) {
+  const o = $('#overlay');
+  o.innerHTML = '';
+  o.appendChild(panel);
+  o.classList.add('open');
+}
+function closeOverlay() { $('#overlay').classList.remove('open'); $('#overlay').innerHTML = ''; }
+$('#overlay').addEventListener('click', e => { if (e.target.id === 'overlay') closeOverlay(); });
+
+document.querySelectorAll('.tab').forEach(t => {
+  t.onclick = () => {
+    document.querySelectorAll('.tab').forEach(x => x.classList.remove('on'));
+    t.classList.add('on');
+    state.stage = t.dataset.stage;
+    renderList();
+  };
+});
+
+$('#refresh').onclick = () => load();
+
+async function load() {
+  state.loading = true;
+  renderRail(); renderList();
+  const client = state.clients.find(c => c.id === state.clientId);
+  $('#who').textContent = client ? client.name : '';
+  try {
+    state.rows = await API.rows(state.clientId, state.stage);
+  } catch (e) {
+    state.rows = [];
+    toast('Could not load the queue. ' + e.message);
+  }
+  state.loading = false;
+  renderRail(); renderList();
+}
+
+(async function boot() {
+  try {
+    state.clients = await API.clients();
+  } catch (e) {
+    state.clients = [];
+    toast('Could not load the clients. ' + e.message);
+  }
+  state.clientId = state.clients.length ? state.clients[0].id : null;
+  await load();
+})();
+</script>
+</body>
+</html>
