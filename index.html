@@ -25,10 +25,17 @@ button{font-family:var(--font);}
 .rail{border-right:1px solid var(--hair);padding:22px 0;background:var(--white);}
 .rail h6{margin:0 0 10px 20px;font-size:10px;font-weight:700;letter-spacing:.08em;
   text-transform:uppercase;color:var(--faint);}
-.rail button{display:flex;width:100%;align-items:center;gap:9px;border:0;background:none;
-  padding:9px 20px;font-size:13px;color:var(--muted);cursor:pointer;text-align:left;}
+.rail button{display:flex;width:100%;align-items:center;gap:10px;border:0;background:none;
+  padding:8px 18px;font-size:13px;color:var(--muted);cursor:pointer;text-align:left;
+  border-left:2px solid transparent;}
 .rail button:hover{background:var(--wash);}
-.rail button.on{color:var(--coral);font-weight:600;background:var(--coral-wash);}
+.rail button.on{color:var(--coral);font-weight:600;background:var(--coral-wash);
+  border-left-color:var(--coral);}
+.rail .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.av-c{position:relative;width:24px;height:24px;border-radius:7px;overflow:hidden;
+  flex:0 0 auto;background:var(--hair-lt);display:flex;align-items:center;justify-content:center;}
+.av-c img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;}
+.av-c i{font-style:normal;font-size:10px;font-weight:700;color:var(--muted);}
 .rail .dot{width:6px;height:6px;border-radius:50%;background:var(--ok);flex:0 0 auto;}
 .rail .dot.bad{background:var(--coral);}
 .rail .n{margin-left:auto;font-family:var(--mono);font-size:11.5px;color:var(--faint);}
@@ -36,9 +43,13 @@ button{font-family:var(--font);}
 .railnote{margin:16px 20px 0;font-size:11px;color:var(--faint);line-height:1.5;}
 
 /* ---------------------------------------------------------------- main --- */
+/* A reading column rather than the full width of the monitor. Rows spread to
+   1900px put the chips a foot away from the name they belong to, and a centred
+   empty state ended up somewhere off to the right on its own. */
 .main{padding:22px 26px 60px;min-width:0;}
+.main > *{max-width:920px;}
 .top{display:flex;align-items:flex-end;gap:22px;border-bottom:1px solid var(--hair);
-  padding-bottom:12px;margin-bottom:6px;flex-wrap:wrap;}
+  padding-bottom:12px;margin-bottom:6px;flex-wrap:wrap;max-width:920px;}
 .tab{font-size:13px;font-weight:600;color:var(--faint);padding-bottom:11px;margin-bottom:-13px;
   cursor:pointer;border-bottom:2px solid transparent;background:none;border-top:0;
   border-left:0;border-right:0;}
@@ -98,7 +109,8 @@ button{font-family:var(--font);}
 .sk-chips{display:flex;gap:6px;}
 .sk-chips span{height:18px;background:var(--wash);border-radius:5px;display:block;}
 
-.empty{text-align:center;padding:60px 20px;color:var(--faint);}
+.empty{text-align:center;padding:56px 20px;color:var(--faint);border:1px dashed var(--hair);
+  border-radius:12px;background:var(--white);}
 .empty h3{margin:0 0 6px;font-size:15px;font-weight:600;color:var(--ink);}
 .empty p{margin:0;font-size:13px;}
 
@@ -409,8 +421,15 @@ function renderRail() {
   rail.innerHTML = '';
   state.clients.forEach(c => {
     const b = el('button', c.id === state.clientId ? 'on' : null);
-    b.innerHTML = `<span class="dot${c.ready ? '' : ' bad'}"></span>
-      <span>${esc(c.name)}</span>`;
+    const initial = (c.name || '?').trim().charAt(0).toUpperCase();
+    // The Instagram picture, because four client names in the same typeface are
+    // hard to tell apart at a glance. The initial covers a missing or expired
+    // picture without leaving a gap.
+    b.innerHTML = `<span class="av-c">${
+        c.avatar ? `<img src="${esc(c.avatar)}" alt="" onerror="this.remove()">` : ''
+      }<i>${esc(initial)}</i></span>
+      <span class="nm">${esc(c.name)}</span>
+      ${c.ready ? '' : '<span class="dot bad" title="Cannot publish"></span>'}`;
     b.onclick = () => { state.clientId = c.id; load(); };
     rail.appendChild(b);
   });
@@ -483,7 +502,10 @@ function renderList() {
     $('#nLive').textContent = '—';
 
     const bar = el('div','loadbar');
-    bar.innerHTML = `<span class="spin"></span> Loading <b>${esc(who)}</b>`;
+    // Says what it is doing and roughly how long. A bare spinner is what makes
+    // someone assume it has hung and start reloading.
+    bar.innerHTML = `<span class="spin"></span> <span>Reading <b>${esc(who)}</b>'s ad account
+      and content plan. This takes a few seconds.</span>`;
     list.appendChild(bar);
 
     for (let i = 0; i < 3; i++) {
