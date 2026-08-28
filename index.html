@@ -180,6 +180,29 @@ button{font-family:var(--font);}
 .camphead span{font-size:11px;color:var(--faint);}
 .camphead .res{color:var(--ok);font-weight:600;}
 .dot-live{width:7px;height:7px;border-radius:50%;background:var(--ok);flex:0 0 auto;}
+
+/* Candidate rows for an unmatched ad: the plan's screenshot beside its name, so
+   the answer is something you can see rather than infer. Small by default and
+   larger on hover — enough to recognise at a glance, enough to be sure on a
+   second look. */
+.cands{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;align-items:flex-start;}
+.cand{display:flex;align-items:center;gap:9px;padding:6px 12px 6px 6px;border-radius:9px;
+  border:1px solid var(--hair);background:var(--white);cursor:pointer;text-align:left;
+  position:relative;}
+.cand:hover{border-color:var(--coral);}
+.cand:disabled{opacity:.6;cursor:default;}
+.cand-img{width:34px;height:42px;border-radius:6px;background:var(--hair-lt);flex:0 0 auto;
+  overflow:hidden;display:block;}
+.cand-img img{width:100%;height:100%;object-fit:cover;display:block;}
+/* The larger look, on hover, floating clear of the row. */
+.cand:hover .cand-img{position:absolute;bottom:calc(100% + 6px);left:0;width:190px;height:auto;
+  max-height:240px;z-index:5;box-shadow:0 8px 28px rgba(50,65,88,.22);border:1px solid var(--hair);
+  background:var(--white);}
+.cand:hover .cand-img img{height:auto;object-fit:contain;}
+.cand-txt b{display:block;font-size:12px;font-weight:600;color:var(--ink);}
+.cand-txt i{font-style:normal;font-size:10.5px;color:var(--faint);}
+.cand.none{border-style:dashed;color:var(--muted);}
+.cand.none .cand-txt b{font-weight:500;color:var(--muted);}
 .plist span{font-size:11px;color:var(--faint);}
 
 .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:var(--navy);
@@ -203,8 +226,7 @@ button{font-family:var(--font);}
   <aside class="rail">
     <h6>Clients</h6>
     <div id="rail"></div>
-    <div class="railnote">Nothing here spends money. Building creates the ad paused in
-      Ads Manager, named and tagged, for someone to check and set live.</div>
+
   </aside>
 
   <main class="main">
@@ -614,6 +636,19 @@ function renderList() {
           };
           opts.appendChild(b);
         });
+
+        // None of the candidates being right is a real answer, and without it
+        // the only options were to pick a wrong one or leave the question
+        // sitting there forever.
+        const no = el('button','cand none');
+        no.innerHTML = `<span class="cand-txt"><b>None of these</b><i>leave it unmatched</i></span>`;
+        no.onclick = () => {
+          a.candidates = [];
+          renderList();
+          toast('Left unmatched. It stays live and nothing changes in Meta.');
+        };
+        opts.appendChild(no);
+
         mid.appendChild(opts);
       }
 
